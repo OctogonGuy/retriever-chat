@@ -84,5 +84,6 @@ def start_server():
             server_soc.close()
             print("Client closed.")
 
-print('starting server')
-start_server()
+if __name__ == "__main__":
+    print('starting server')
+    start_server()
