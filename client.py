@@ -4,6 +4,7 @@ from config import *
 
 import socket
 import threading
+from fernets import send_raw, recv_raw, client_key_exchange
 
 HEADER = 256
 CHUNK = 1024
@@ -11,37 +12,36 @@ PORT = 8080
 FORMAT = 'utf-8'
 USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 
+
 def connect(ip_address):
     addr = (ip_address, PORT)
     client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client_soc.connect(addr)
     except Exception as e:
-        print(f"Unable to connect to server at {ADDR}: {e}")
+        print(f"Unable to connect to server at {addr}: {e}")
         exit(1)
     return client_soc
 
-def send(soc, message):
-    msg = message.encode(FORMAT)
-    msg_len = len(msg)
-    msg_padding = str(msg_len).encode(FORMAT)
-    msg_padding += b' ' * (HEADER - len(msg_padding))
-    soc.send(msg_padding)
-    soc.send(msg)
+
+def send(soc, fernet, message):
+    encrypted = fernet.encrypt(message.encode(FORMAT))
+    send_raw(soc, encrypted)
 
 
-def receive(soc):
-    msg_len = soc.recv(HEADER).decode(FORMAT)
+def receive(soc, fernet):
+    msg_len = soc.recv(HEADER).decode(FORMAT).strip()
     if msg_len:
         msg_len = int(msg_len)
-        return soc.recv(msg_len).decode(FORMAT)
+        encrypted = soc.recv(msg_len)
+        return fernet.decrypt(encrypted).decode(FORMAT)
     return None
 
 
-def listen(soc):
+def listen(soc, fernet):
     while True:
         try:
-            msg = receive(soc)
+            msg = receive(soc, fernet)
             if msg:
                 print(f"\n{msg}")
                 print(USER_INPUT_PROMPT, end='', flush=True)

@@ -4,6 +4,8 @@ from config import *
 
 import socket
 import threading
+from fernets import server_key_exchange, send_raw, recv_raw
+
 
 def get_local_ip():
     try:
@@ -14,6 +16,7 @@ def get_local_ip():
         return local_ip
     except Exception:
         return "127.0.0.1"
+
 
 HEADER = 256
 HOST = '0.0.0.0'
@@ -26,27 +29,29 @@ clients = {}
 server_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_soc.bind(ADDR)
 
+
 def connect_to_client(client_soc, addr):
     print(f'connected to {addr}')
     try:
-        msg_len = client_soc.recv(HEADER).decode(FORMAT)
-        if msg_len:
-            msg_len = int(msg_len)
-            username = client_soc.recv(msg_len).decode(FORMAT)
-            clients[client_soc] = username
-            print(f"[{addr}] registered as {username}")
-            broadcast(f"--- {username} has joined the chat! ---", client_soc)
+        username_bytes = recv_raw(client_soc)
+        username = username_bytes.decode(FORMAT)
+        print(f"{addr} registered as {username}")
     except:
         print(f"Error registering user at {addr}")
         return
 
+    fernet = server_key_exchange(client_soc)
+    clients[client_soc] = (username, fernet)
+    broadcast(f"--- {username} has joined the chat! ---", client_soc)
+
     connected = True
     while connected:
-        msg_len = client_soc.recv(HEADER).decode(FORMAT)
+        msg_len = client_soc.recv(HEADER).decode(FORMAT).strip()
         if msg_len:
             msg_len = int(msg_len)
-            msg = client_soc.recv(msg_len).decode(FORMAT)
-            print(f'message "{msg}" from {username}')
+            encrypted = client_soc.recv(msg_len)
+            print(f'Encrypted message from {username}: {encrypted}')
+            msg = fernet.decrypt(encrypted).decode(FORMAT)
 
             if msg != DISCONNECT_MESSAGE:
                 formatted_msg = f"{username}: {msg}"
@@ -61,24 +66,17 @@ def connect_to_client(client_soc, addr):
                 connected = False
 
 
-def send(client_soc, message):
-    msg = message.encode(FORMAT)
-    msg_len = len(msg)
-    header = str(msg_len).encode(FORMAT)
-    header += b' ' * (HEADER - len(header))
-    client_soc.send(header)
-    client_soc.send(msg)
-
-
 def broadcast(msg, sender):
-    for client in list(clients.keys()):
+    for client, (username, fernet) in list(clients.items()):
         if client != sender:
             try:
-                send(client, msg)
+                encrypted = fernet.encrypt(msg.encode(FORMAT))
+                send_raw(client, encrypted)
             except OSError:
                 client.close()
                 if client in clients:
                     del clients[client]
+
 
 def start_server():
     try:
@@ -94,6 +92,7 @@ def start_server():
             client.close()
             server_soc.close()
             print("Client closed.")
+
 
 if __name__ == "__main__":
     print('starting server')

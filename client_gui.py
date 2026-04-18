@@ -6,6 +6,7 @@ from tkinter import simpledialog, scrolledtext
 
 from config import *
 from client import connect, send, receive
+from fernets import send_raw, client_key_exchange
 
 
 class ClientGUI:
@@ -22,7 +23,8 @@ class ClientGUI:
             return
         # Create client socket and login as username
         self.client_soc = connect(self.server)
-        send(self.client_soc, self.username)
+        send_raw(self.client_soc, self.username.encode('utf-8'))
+        self.fernet = client_key_exchange(self.client_soc)
 
         # Chat area
         self.chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state="disabled", height=20, width=60)
@@ -64,14 +66,14 @@ class ClientGUI:
         message = self.message_entry.get().strip()
         if not message:
             return
-        send(self.client_soc, message)
+        send(self.client_soc, self.fernet, message)
         self.append_message(f"You: {message}")
         self.message_entry.delete(0, tk.END)
 
     def listen_for_messages(self):
         while self.running:
             try:
-                message = receive(self.client_soc)
+                message = receive(self.client_soc, self.fernet)
                 if message:
                     self.root.after(0, self.append_message, message)
             except OSError:
@@ -79,7 +81,7 @@ class ClientGUI:
 
     def on_close(self):
         self.running = False
-        send(self.client_soc, DISCONNECT_MESSAGE)
+        send(self.client_soc, self.fernet, DISCONNECT_MESSAGE)
         self.root.after(100, self.root.destroy)
 
 
