@@ -5,8 +5,19 @@ from config import *
 import socket
 import threading
 
+def get_local_ip():
+    try:
+        dummy_ip = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        dummy_ip.connect(('8.8.8.8', 80))
+        local_ip = dummy_ip.getsockname()[0]
+        dummy_ip.close()
+        return local_ip
+    except Exception:
+        return "127.0.0.1"
+
 HEADER = 256
-HOST = socket.gethostbyname(socket.gethostname())
+HOST = '0.0.0.0'
+SERVER_IP = get_local_ip()
 PORT = 8080
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
@@ -85,4 +96,6 @@ def start_server():
             print("Client closed.")
 
 print('starting server')
+print(f"[STARTING] Server is starting...")
+print(f"[INFO] Tell your friends to connect to this IP: {SERVER_IP}")
 start_server()

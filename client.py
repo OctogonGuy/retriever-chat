@@ -7,15 +7,21 @@ import threading
 
 HEADER = 256
 CHUNK = 1024
-HOST = socket.gethostbyname(socket.gethostname())
 PORT = 8080
-ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
+
+SERVER = input("Enter the server IP address to connect to: ")
+ADDR = (SERVER, PORT)
 
 USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 
 client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_soc.connect(ADDR)
+
+try:
+    client_soc.connect(ADDR)
+except Exception as e:
+    print(f"Unable to connect to server at {ADDR}: {e}")
+    exit(1)
 
 def send(message):
     msg = message.encode(FORMAT)
