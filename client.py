@@ -1,6 +1,7 @@
 # Client program
 
 import socket
+import threading
 
 HEADER = 256
 CHUNK = 1024
@@ -21,7 +22,20 @@ def send(msg):
     client_soc.send(msg_padding)
     client_soc.send(msg)
 
+def listen():
+    while True:
+        try:
+            msg_len = client_soc.recv(HEADER).decode(FORMAT)
+            if msg_len:
+                msg_len = int(msg_len)
+                msg = client_soc.recv(msg_len).decode(FORMAT)
+                print(f"\nNew Message Available: {msg}")
+        except:
+            break
+
 connected = True
+threading.Thread(taget=listen(), daemon=True).start()
+
 while connected == True:
 
     msg = input('Enter a message (or "q" to quit): ')
@@ -32,3 +46,4 @@ while connected == True:
     received_msg = client_soc.recv(CHUNK).decode(FORMAT)
     print(received_msg)
     print('client received message from server')
+
