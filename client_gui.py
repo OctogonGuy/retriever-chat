@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import simpledialog, scrolledtext
 
 from config import *
-from client import send, receive
+from client import connect, send, receive
 
 
 class ClientGUI:
@@ -15,11 +15,14 @@ class ClientGUI:
         self.root.title("Chat Client")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.username = self.prompt_for_username()
+        # Get IP address and username
+        self.server, self.username = self.prompt_for_login()
         if not self.username:
             self.root.destroy()
             return
-        send(self.username)
+        # Create client socket and login as username
+        self.client_soc = connect(self.server)
+        send(self.client_soc, self.username)
 
         # Chat area
         self.chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state="disabled", height=20, width=60)
@@ -40,11 +43,16 @@ class ClientGUI:
         self.listener_thread = threading.Thread(target=self.listen_for_messages, daemon=True)
         self.listener_thread.start()
 
-    def prompt_for_username(self):
+    def prompt_for_login(self):
+        self.root.withdraw()
+        ip_address = simpledialog.askstring("Login", "Enter the server IP address to connect to:", parent=self.root)
+        self.root.deiconify()
         self.root.withdraw()
         username = simpledialog.askstring("Login", "Enter a username:", parent=self.root)
         self.root.deiconify()
-        return username.strip() if username else None
+        ip_address = ip_address.strip()
+        username = username.strip() if username else None
+        return ip_address, username
 
     def append_message(self, message):
         self.chat_area.configure(state="normal")
@@ -56,14 +64,14 @@ class ClientGUI:
         message = self.message_entry.get().strip()
         if not message:
             return
-        send(message)
+        send(self.client_soc, message)
         self.append_message(f"You: {message}")
         self.message_entry.delete(0, tk.END)
 
     def listen_for_messages(self):
         while self.running:
             try:
-                message = receive()
+                message = receive(self.client_soc)
                 if message:
                     self.root.after(0, self.append_message, message)
             except OSError:
@@ -71,7 +79,7 @@ class ClientGUI:
 
     def on_close(self):
         self.running = False
-        send(DISCONNECT_MESSAGE)
+        send(self.client_soc, DISCONNECT_MESSAGE)
         self.root.after(100, self.root.destroy)
 
 

@@ -9,41 +9,39 @@ HEADER = 256
 CHUNK = 1024
 PORT = 8080
 FORMAT = 'utf-8'
-
-SERVER = input("Enter the server IP address to connect to: ")
-ADDR = (SERVER, PORT)
-
 USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 
-client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def connect(ip_address):
+    addr = (ip_address, PORT)
+    client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        client_soc.connect(addr)
+    except Exception as e:
+        print(f"Unable to connect to server at {ADDR}: {e}")
+        exit(1)
+    return client_soc
 
-try:
-    client_soc.connect(ADDR)
-except Exception as e:
-    print(f"Unable to connect to server at {ADDR}: {e}")
-    exit(1)
-
-def send(message):
+def send(soc, message):
     msg = message.encode(FORMAT)
     msg_len = len(msg)
     msg_padding = str(msg_len).encode(FORMAT)
     msg_padding += b' ' * (HEADER - len(msg_padding))
-    client_soc.send(msg_padding)
-    client_soc.send(msg)
+    soc.send(msg_padding)
+    soc.send(msg)
 
 
-def receive():
-    msg_len = client_soc.recv(HEADER).decode(FORMAT)
+def receive(soc):
+    msg_len = soc.recv(HEADER).decode(FORMAT)
     if msg_len:
         msg_len = int(msg_len)
-        return client_soc.recv(msg_len).decode(FORMAT)
+        return soc.recv(msg_len).decode(FORMAT)
     return None
 
 
-def listen():
+def listen(soc):
     while True:
         try:
-            msg = receive()
+            msg = receive(soc)
             if msg:
                 print(f"\n{msg}")
                 print(USER_INPUT_PROMPT, end='', flush=True)
@@ -52,15 +50,22 @@ def listen():
 
 
 if __name__ == "__main__":
+    # Get IP address
+    server = input("Enter the server IP address to connect to: ")
+
+    # Create client socket
+    client_soc = connect(server)
+
+    # Get and send username
     username = input("Enter your username: ")
-    send(username)
+    send(client_soc, username)
 
+    # Keep listening for requests
     connected = True
-    threading.Thread(target=listen, daemon=True).start()
-
+    threading.Thread(target=listen, daemon=True, args=(client_soc,)).start()
     while connected:
         send_msg = input(USER_INPUT_PROMPT)
-        send(send_msg)
+        send(client_soc, send_msg)
         if send_msg == DISCONNECT_MESSAGE:
             connected = False
             break
