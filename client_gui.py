@@ -5,15 +5,18 @@ import tkinter as tk
 from tkinter import simpledialog, scrolledtext, messagebox
 
 from config import *
-from client import connect, send, receive
+from client import setup_connection, send, receive
 
 
 class ClientGUI:
     def __init__(self, root):
-        # Window
+        # Window setup
         self.root = root
-        self.root.title("Chat Client")
+        self.root.title("Secure Chat Client")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        # Hide the main chat window while we collect login info
+        self.root.withdraw()
 
         # Get login info
         # Get username
@@ -29,50 +32,76 @@ class ClientGUI:
                     self.root.deiconify()
         except AttributeError:
             exit(1)
-        # Get IP address and create client socket
-        try:
-            self.server = self.prompt_for_ip_address()
-            self.client_soc = connect(self.server)
-        except AttributeError:
-            exit(1)
-        except Exception as e:
-            self.root.withdraw()
-            messagebox.showerror("Connection Error", f"Unable to connect to server: {e}")
-            self.root.deiconify()
-            exit(1)
+        # Authenticate using our new GUI-specific 3-try loop
+        self.client_soc = setup_connection()
+        if not self.client_soc:
+            messagebox.showerror("Connection Error", "Server not found on the network. Please ensure the server is broadcasting.")
+            self.root.destroy()
+            return
+        if not self.authenticate_gui():
+            self.client_soc.close()
+            self.root.destroy()
+            return
         # Send username to server
         send(self.client_soc, self.username)
 
+        # Show the main chat window
+        self.root.deiconify()
+
         # Chat area
-        self.chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state="disabled", height=20, width=60)
+        self.chat_area = scrolledtext.ScrolledText(
+            root, wrap=tk.WORD, state="disabled", height=20, width=60
+        )
         self.chat_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        # Text box
+        # Text box area
         self.entry_frame = tk.Frame(root)
         self.entry_frame.pack(padx=10, pady=(0, 10), fill=tk.X)
+
         self.message_entry = tk.Entry(self.entry_frame)
         self.message_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         self.message_entry.bind("<Return>", self.on_send)
+
         self.send_button = tk.Button(self.entry_frame, text="Send", command=self.on_send)
         self.send_button.pack(side=tk.RIGHT)
 
         # Start listening for messages
         self.running = True
-        self.append_message(f"Connected as {self.username}.")
+        self.append_message(f"--- Connected as {self.username} ---")
         self.listener_thread = threading.Thread(target=self.listen_for_messages, daemon=True)
         self.listener_thread.start()
 
-    def prompt_for_ip_address(self):
-        self.root.withdraw()
-        ip_address = simpledialog.askstring("Login", "Enter the server IP address to connect to:", parent=self.root)
-        self.root.deiconify()
-        return ip_address.strip()
-
     def prompt_for_username(self):
-        self.root.withdraw()
         username = simpledialog.askstring("Login", "Enter a username:", parent=self.root)
-        self.root.deiconify()
-        return username.strip()
+        if username is None:
+            return None
+        username = username.strip()
+        return username if username else None
+
+    def authenticate_gui(self):
+        """Handles the 3-try password loop using Tkinter popup boxes."""
+        for attempt in range(3):
+            # show='*' hides the password characters with asterisks
+            password = simpledialog.askstring("Authentication",
+                                              f"Enter room password (Attempt {attempt+1}/3):",
+                                              parent=self.root, show='*')
+
+            if password is None: # Triggers if they click "Cancel"
+                return False
+
+            send(self.client_soc, password)
+            response = receive(self.client_soc)
+
+            if response == "PASS_OK":
+                messagebox.showinfo("Success", "Access granted!")
+                return True
+            elif response == "WRONG_PASS":
+                messagebox.showwarning("Error", "Incorrect password. Try again.")
+            elif response == "LOCKED_OUT":
+                messagebox.showerror("Locked Out", "Incorrect password. You have been locked out.")
+                return False
+
+        return False
 
     def append_message(self, message):
         self.chat_area.configure(state="normal")
@@ -84,6 +113,7 @@ class ClientGUI:
         message = self.message_entry.get().strip()
         if not message:
             return
+
         send(self.client_soc, message)
         self.append_message(f"You: {message}")
         self.message_entry.delete(0, tk.END)
@@ -99,7 +129,10 @@ class ClientGUI:
 
     def on_close(self):
         self.running = False
-        send(self.client_soc, DISCONNECT_MESSAGE)
+        try:
+            send(self.client_soc, DISCONNECT_MESSAGE)
+        except Exception:
+            pass
         self.root.after(100, self.root.destroy)
 
 
