@@ -4,6 +4,7 @@ from config import *
 
 import socket
 import threading
+import time
 
 def get_local_ip():
     try:
@@ -19,16 +20,62 @@ HEADER = 256
 HOST = '0.0.0.0'
 SERVER_IP = get_local_ip()
 PORT = 8080
+UDP_PORT = 8081
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
 clients = {}
 
+ROOM_PASSWORD = input("Create a secret password for this chat room: ")
+
 server_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_soc.bind(ADDR)
+
+# --- NEW: Auto-Discovery Broadcaster ---
+def broadcast_presence():
+    """Constantly shouts to the network so clients can find the server."""
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+    broadcast_msg = b"CHAT_SERVER_HERE"
+    start_time = time.time()
+    
+    while time.time() - start_time < 30:  # Broadcast for 30 seconds
+        try:
+            udp_socket.sendto(broadcast_msg, ('<broadcast>', UDP_PORT))
+            time.sleep(1)
+        except Exception as e:
+            print(f"Broadcast error: {e}")
+            break
+    print("\n[INFO] Broadcast ended. The room is now hidden from the network.")
+    udp_socket.close()
 
 def connect_to_client(client_soc, addr):
     print(f'connected to {addr}')
     try:
+        # --- NEW: 3 Tries Password Logic ---
+        authenticated = False
+        for attempt in range(3):
+            msg_len = client_soc.recv(HEADER).decode(FORMAT)
+            if msg_len:
+                client_pass = client_soc.recv(int(msg_len)).decode(FORMAT)
+                
+                if client_pass == ROOM_PASSWORD:
+                    send(client_soc, "PASS_OK")
+                    authenticated = True
+                    break # Break out of the loop, password is correct
+                else:
+                    if attempt < 2: # If it's try 1 or 2
+                        send(client_soc, "WRONG_PASS")
+                    else:           # If it's the 3rd try
+                        send(client_soc, "LOCKED_OUT")
+        
+        # If they failed 3 times, close the connection and stop the thread
+        if not authenticated:
+            print(f"[{addr}] Kicked: Failed password 3 times.")
+            client_soc.close()
+            return
+
+        # --- EXISTING: Register the username ---
         msg_len = client_soc.recv(HEADER).decode(FORMAT)
         if msg_len:
             msg_len = int(msg_len)
@@ -98,5 +145,9 @@ def start_server():
 if __name__ == "__main__":
     print('starting server')
     print(f"[STARTING] Server is starting...")
-    print(f"[INFO] Tell your friends to connect to this IP: {SERVER_IP}")
+    print(f"[INFO] Server is broadcasting its presence on the network.")
+    
+    # --- NEW: Start the broadcaster thread ---
+    announce_thread = threading.Thread(target=broadcast_presence, daemon=True)
+    announce_thread.start()
     start_server()

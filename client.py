@@ -8,59 +8,117 @@ import threading
 HEADER = 256
 CHUNK = 1024
 PORT = 8080
+UDP_PORT = 8081
 FORMAT = 'utf-8'
-
-SERVER = input("Enter the server IP address to connect to: ")
-ADDR = (SERVER, PORT)
 
 USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 
-client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def find_server():
+    print("Looking for the chat server on the network...")
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    udp_socket.bind(('', UDP_PORT))
 
-try:
-    client_soc.connect(ADDR)
-except Exception as e:
-    print(f"Unable to connect to server at {ADDR}: {e}")
-    exit(1)
+    udp_socket.settimeout(5.0)
+    
+    while True:
+        try:
+            data, addr = udp_socket.recvfrom(1024)
+            if data == b"CHAT_SERVER_HERE":
+                server_ip = addr[0]
+                print(f"Found server at {server_ip}!")
+                udp_socket.close()
+                return server_ip
+        except socket.timeout:
+            print("No server found. Please ensure the server is running and try again.")
+            udp_socket.close()
+            return None
+        
+# --- NEW: Connection Function ---
+def setup_connection():
+    """Finds the server and establishes the TCP connection."""
+    server_ip = find_server()
+    if not server_ip:
+        return None # Failed to find server
+        
+    addr = (server_ip, PORT)
+    soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def send(message):
+    try:
+        soc.connect(addr)
+        return soc # Return the connected socket!
+    except Exception as e:
+        print(f"Unable to connect to server at {addr}: {e}")
+        return None
+
+# --- Updated functions to accept the socket ---
+def send(message, soc):
     msg = message.encode(FORMAT)
     msg_len = len(msg)
     msg_padding = str(msg_len).encode(FORMAT)
     msg_padding += b' ' * (HEADER - len(msg_padding))
-    client_soc.send(msg_padding)
-    client_soc.send(msg)
+    soc.send(msg_padding)
+    soc.send(msg)
 
 
-def receive():
-    msg_len = client_soc.recv(HEADER).decode(FORMAT)
+def receive(soc):
+    msg_len = soc.recv(HEADER).decode(FORMAT)
     if msg_len:
         msg_len = int(msg_len)
-        return client_soc.recv(msg_len).decode(FORMAT)
+        return soc.recv(msg_len).decode(FORMAT)
     return None
 
 
-def listen():
+def listen(soc):
     while True:
         try:
-            msg = receive()
+            msg = receive(soc)
             if msg:
                 print(f"\n{msg}")
                 print(USER_INPUT_PROMPT, end='', flush=True)
         except OSError:
             break
 
+# 2. FIXED: Added 'soc' as an argument here
+def authenticate(soc):
+    """Handles the 3-try password loop. Returns True if successful, False if failed."""
+    for attempt in range(3):
+        room_pass = input(f"Enter the secret room password (Attempt {attempt+1}/3): ")
+        send(room_pass, soc)      # <--- Passed soc
+        response = receive(soc)   # <--- Passed soc
+        
+        if response == "PASS_OK":
+            print("Access granted!\n")
+            return True
+        elif response == "WRONG_PASS":
+            print("Incorrect password. Try again.\n")
+        elif response == "LOCKED_OUT":
+            print("Incorrect password. You have been locked out.")
+            return False
+            
+    # If the loop finishes without returning True, they failed all 3 tries.
+    return False
+
 
 if __name__ == "__main__":
+    client_soc = setup_connection()
+    if not client_soc:
+        print("Failed to connect to the server.")
+        exit()
+
+    if not authenticate(client_soc):
+        client_soc.close()
+        exit()
+    
     username = input("Enter your username: ")
-    send(username)
+    send(username, client_soc) # Send the username to the server
 
     connected = True
-    threading.Thread(target=listen, daemon=True).start()
+    threading.Thread(target=listen, args=(client_soc,), daemon=True).start()
 
     while connected:
         send_msg = input(USER_INPUT_PROMPT)
-        send(send_msg)
+        send(send_msg, client_soc)
         if send_msg == DISCONNECT_MESSAGE:
             connected = False
             break
