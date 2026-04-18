@@ -67,4 +67,11 @@ def start_server():
         print(f'{threading.active_count() - 1} threads started')
 
 print('starting server')
-start_server()
+try:
+    start_server()
+except KeyboardInterrupt:
+    print('\nShutting down server...')
+    for client in clients:
+        client.close()
+        server_soc.close()
+        print("Client closed.")
