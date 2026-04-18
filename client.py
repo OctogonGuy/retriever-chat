@@ -17,7 +17,7 @@ def connect(ip_address):
     try:
         client_soc.connect(addr)
     except Exception as e:
-        print(f"Unable to connect to server at {ADDR}: {e}")
+        print(f"Unable to connect to server at {addr}: {e}")
         exit(1)
     return client_soc
 
