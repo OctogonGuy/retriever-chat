@@ -36,11 +36,13 @@ def listen():
         try:
             msg = receive()
             if msg:
-                print(f"\nNew Message Available: {msg}")
+                print(f"\n{msg}")
                 print('Enter a message (or "q" to quit): ')
         except:
             break
 
+username = input("Enter your username: ")
+send(username)
 
 connected = True
 threading.Thread(target=listen, daemon=True).start()
