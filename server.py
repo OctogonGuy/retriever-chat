@@ -38,14 +38,25 @@ def connect_to_client(client_soc, addr):
                 client_soc.close()
                 print(f'client connection with {addr} closed')
                 connected = False
-def broadcasting(msg, sender):
+
+
+def send(client, message):
+    msg = message.encode(FORMAT)
+    msg_len = len(msg)
+    header = str(msg_len).encode(FORMAT)
+    header += b' ' * (HEADER - len(header))
+    client.send(header)
+    client.send(msg)
+
+
+def broadcast(msg, sender):
     for client in clients:
         if client != sender:
             try:
-                client.send(msg.encode(FORMAT))
+                send(client, msg)
             except:
                 client.close()
-                client.remove(client)
+                clients.remove(client)
 
 
 def start_server():
