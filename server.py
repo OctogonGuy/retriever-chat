@@ -95,7 +95,8 @@ def start_server():
             server_soc.close()
             print("Client closed.")
 
-print('starting server')
-print(f"[STARTING] Server is starting...")
-print(f"[INFO] Tell your friends to connect to this IP: {SERVER_IP}")
-start_server()
+if __name__ == "__main__":
+    print('starting server')
+    print(f"[STARTING] Server is starting...")
+    print(f"[INFO] Tell your friends to connect to this IP: {SERVER_IP}")
+    start_server()

@@ -50,16 +50,17 @@ def listen():
         except OSError:
             break
 
-username = input("Enter your username: ")
-send(username)
 
-connected = True
-threading.Thread(target=listen, daemon=True).start()
+if __name__ == "__main__":
+    username = input("Enter your username: ")
+    send(username)
 
-while connected:
-    send_msg = input(USER_INPUT_PROMPT)
-    send(send_msg)
-    if send_msg == DISCONNECT_MESSAGE:
-        connected = False
-        break
+    connected = True
+    threading.Thread(target=listen, daemon=True).start()
 
+    while connected:
+        send_msg = input(USER_INPUT_PROMPT)
+        send(send_msg)
+        if send_msg == DISCONNECT_MESSAGE:
+            connected = False
+            break
