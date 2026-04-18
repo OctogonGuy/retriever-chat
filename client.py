@@ -14,11 +14,7 @@ USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 def connect(ip_address):
     addr = (ip_address, PORT)
     client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        client_soc.connect(addr)
-    except Exception as e:
-        print(f"Unable to connect to server at {addr}: {e}")
-        exit(1)
+    client_soc.connect(addr)
     return client_soc
 
 def send(soc, message):
@@ -54,7 +50,11 @@ if __name__ == "__main__":
     server = input("Enter the server IP address to connect to: ")
 
     # Create client socket
-    client_soc = connect(server)
+    try:
+        client_soc = connect(server)
+    except Exception as e:
+        print(f"Unable to connect to server: {e}")
+        exit(1)
 
     # Get and send username
     username = input("Enter your username: ")

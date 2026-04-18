@@ -2,7 +2,7 @@
 
 import threading
 import tkinter as tk
-from tkinter import simpledialog, scrolledtext
+from tkinter import simpledialog, scrolledtext, messagebox
 
 from config import *
 from client import connect, send, receive
@@ -15,13 +15,32 @@ class ClientGUI:
         self.root.title("Chat Client")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        # Get IP address and username
-        self.server, self.username = self.prompt_for_login()
-        if not self.username:
-            self.root.destroy()
-            return
-        # Create client socket and login as username
-        self.client_soc = connect(self.server)
+        # Get login info
+        # Get username
+        try:
+            self.username = None
+            while not self.username:
+                self.username = self.prompt_for_username()
+                if self.username is None:
+                    raise AttributeError
+                if not self.username:
+                    self.root.withdraw()
+                    messagebox.showerror("Username Error", "Invalid username")
+                    self.root.deiconify()
+        except AttributeError:
+            exit(1)
+        # Get IP address and create client socket
+        try:
+            self.server = self.prompt_for_ip_address()
+            self.client_soc = connect(self.server)
+        except AttributeError:
+            exit(1)
+        except Exception as e:
+            self.root.withdraw()
+            messagebox.showerror("Connection Error", f"Unable to connect to server: {e}")
+            self.root.deiconify()
+            exit(1)
+        # Send username to server
         send(self.client_soc, self.username)
 
         # Chat area
@@ -37,22 +56,23 @@ class ClientGUI:
         self.send_button = tk.Button(self.entry_frame, text="Send", command=self.on_send)
         self.send_button.pack(side=tk.RIGHT)
 
-        # Start
+        # Start listening for messages
         self.running = True
         self.append_message(f"Connected as {self.username}.")
         self.listener_thread = threading.Thread(target=self.listen_for_messages, daemon=True)
         self.listener_thread.start()
 
-    def prompt_for_login(self):
+    def prompt_for_ip_address(self):
         self.root.withdraw()
         ip_address = simpledialog.askstring("Login", "Enter the server IP address to connect to:", parent=self.root)
         self.root.deiconify()
+        return ip_address.strip()
+
+    def prompt_for_username(self):
         self.root.withdraw()
         username = simpledialog.askstring("Login", "Enter a username:", parent=self.root)
         self.root.deiconify()
-        ip_address = ip_address.strip()
-        username = username.strip() if username else None
-        return ip_address, username
+        return username.strip()
 
     def append_message(self, message):
         self.chat_area.configure(state="normal")
