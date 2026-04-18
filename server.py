@@ -9,7 +9,7 @@ HOST = socket.gethostbyname(socket.gethostname())
 PORT = 8080
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = 'DISCONNECTED'
+DISCONNECT_MESSAGE = 'q'
 clients = []
 
 server_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
