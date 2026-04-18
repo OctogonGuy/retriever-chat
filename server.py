@@ -2,7 +2,6 @@
 
 import socket
 import threading
-import time
 
 HEADER = 256
 HOST = socket.gethostbyname(socket.gethostname())
@@ -29,8 +28,6 @@ def connect_to_client(client_soc, addr):
             if msg != DISCONNECT_MESSAGE:
                 broadcast(msg, client_soc)
                 print('server sent message to client')
-                print('sleeping')
-                time.sleep(30)
 
             else:
                 clients.remove(client_soc)
