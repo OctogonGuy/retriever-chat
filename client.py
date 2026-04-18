@@ -41,7 +41,7 @@ def listen():
             if msg:
                 print(f"\nNew Message Available: {msg}")
                 print(USER_INPUT_PROMPT, end='', flush=True)
-        except:
+        except OSError:
             break
 
 

@@ -38,13 +38,13 @@ def connect_to_client(client_soc, addr):
                 connected = False
 
 
-def send(client, message):
+def send(client_soc, message):
     msg = message.encode(FORMAT)
     msg_len = len(msg)
     header = str(msg_len).encode(FORMAT)
     header += b' ' * (HEADER - len(header))
-    client.send(header)
-    client.send(msg)
+    client_soc.send(header)
+    client_soc.send(msg)
 
 
 def broadcast(msg, sender):
@@ -52,26 +52,26 @@ def broadcast(msg, sender):
         if client != sender:
             try:
                 send(client, msg)
-            except:
+            except OSError:
                 client.close()
                 clients.remove(client)
 
 
 def start_server():
-    server_soc.listen()
-    while True:
-        client_soc, addr = server_soc.accept()
-        clients.append(client_soc)
-        thread = threading.Thread(target=connect_to_client, args=(client_soc, addr))
-        thread.start()
-        print(f'{threading.active_count() - 1} threads started')
+    try:
+        server_soc.listen()
+        while True:
+            client_soc, addr = server_soc.accept()
+            clients.append(client_soc)
+            thread = threading.Thread(target=connect_to_client, args=(client_soc, addr))
+            thread.start()
+            print(f'{threading.active_count() - 1} threads started')
+    except KeyboardInterrupt:
+        print('\nShutting down server...')
+        for client in clients:
+            client.close()
+            server_soc.close()
+            print("Client closed.")
 
 print('starting server')
-try:
-    start_server()
-except KeyboardInterrupt:
-    print('\nShutting down server...')
-    for client in clients:
-        client.close()
-        server_soc.close()
-        print("Client closed.")
+start_server()
