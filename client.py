@@ -37,7 +37,7 @@ def listen():
             msg = receive()
             if msg:
                 print(f"\nNew Message Available: {msg}")
-                print('Enter a message (or "q" to quit): ')
+                print('Enter a message (or "q" to quit): ', end='', flush=True)
         except:
             break
 
