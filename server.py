@@ -1,15 +1,15 @@
 # Server program
 
+from config import *
+
 import socket
 import threading
-import time
 
 HEADER = 256
 HOST = socket.gethostbyname(socket.gethostname())
 PORT = 8080
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = 'q'
 clients = {}
 
 server_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -50,13 +50,13 @@ def connect_to_client(client_soc, addr):
                 connected = False
 
 
-def send(client, message):
+def send(client_soc, message):
     msg = message.encode(FORMAT)
     msg_len = len(msg)
     header = str(msg_len).encode(FORMAT)
     header += b' ' * (HEADER - len(header))
-    client.send(header)
-    client.send(msg)
+    client_soc.send(header)
+    client_soc.send(msg)
 
 
 def broadcast(msg, sender):
@@ -64,18 +64,25 @@ def broadcast(msg, sender):
         if client != sender:
             try:
                 send(client, msg)
-            except:
+            except OSError:
                 client.close()
                 if client in clients:
                     del clients[client]
 
 def start_server():
-    server_soc.listen()
-    while True:
-        client_soc, addr = server_soc.accept()
-        thread = threading.Thread(target=connect_to_client, args=(client_soc, addr))
-        thread.start()
-        print(f'{threading.active_count() - 1} threads started')
+    try:
+        server_soc.listen()
+        while True:
+            client_soc, addr = server_soc.accept()
+            thread = threading.Thread(target=connect_to_client, args=(client_soc, addr))
+            thread.start()
+            print(f'{threading.active_count() - 1} threads started')
+    except KeyboardInterrupt:
+        print('\nShutting down server...')
+        for client in clients:
+            client.close()
+            server_soc.close()
+            print("Client closed.")
 
 print('starting server')
 start_server()
