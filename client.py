@@ -1,5 +1,7 @@
 # Client program
 
+from config import *
+
 import socket
 import threading
 
@@ -9,7 +11,8 @@ HOST = socket.gethostbyname(socket.gethostname())
 PORT = 8080
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = 'q'
+
+USER_INPUT_PROMPT = f'Enter a message (or "{DISCONNECT_MESSAGE}" to quit): '
 
 client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_soc.connect(ADDR)
@@ -37,7 +40,7 @@ def listen():
             msg = receive()
             if msg:
                 print(f"\nNew Message Available: {msg}")
-                print('Enter a message (or "q" to quit): ', end='', flush=True)
+                print(USER_INPUT_PROMPT, end='', flush=True)
         except:
             break
 
@@ -46,7 +49,7 @@ connected = True
 threading.Thread(target=listen, daemon=True).start()
 
 while connected:
-    send_msg = input('Enter a message (or "q" to quit): ')
+    send_msg = input(USER_INPUT_PROMPT)
     send(send_msg)
     if send_msg == DISCONNECT_MESSAGE:
         connected = False
