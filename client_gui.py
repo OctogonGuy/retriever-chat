@@ -2,7 +2,7 @@
 
 import threading
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import simpledialog, scrolledtext
 
 from config import *
 from client import send, receive
@@ -13,10 +13,16 @@ class ClientGUI:
         # Window
         self.root = root
         self.root.title("Chat Client")
-        root.geometry("600x400")
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self.username = self.prompt_for_username()
+        if not self.username:
+            self.root.destroy()
+            return
+        send(self.username)
 
         # Chat area
-        self.chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state="disabled", height=5, width=60)
+        self.chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state="disabled", height=20, width=60)
         self.chat_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         # Text box
@@ -30,10 +36,15 @@ class ClientGUI:
 
         # Start
         self.running = True
-        self.append_message("Connected to server.")
+        self.append_message(f"Connected as {self.username}.")
         self.listener_thread = threading.Thread(target=self.listen_for_messages, daemon=True)
         self.listener_thread.start()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def prompt_for_username(self):
+        self.root.withdraw()
+        username = simpledialog.askstring("Login", "Enter a username:", parent=self.root)
+        self.root.deiconify()
+        return username.strip() if username else None
 
     def append_message(self, message):
         self.chat_area.configure(state="normal")
