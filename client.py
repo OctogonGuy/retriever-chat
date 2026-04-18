@@ -8,7 +8,7 @@ HOST = socket.gethostbyname(socket.gethostname())
 PORT = 8080
 ADDR = (HOST, PORT)
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = 'DISCONNECTED'
+DISCONNECT_MESSAGE = 'q'
 
 client_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_soc.connect(ADDR)
@@ -21,10 +21,14 @@ def send(msg):
     client_soc.send(msg_padding)
     client_soc.send(msg)
 
-print('client sent message to server')
-send('testing testing 123')
-received_msg = client_soc.recv(CHUNK).decode(FORMAT)
-print(received_msg)
-print('client received message from server')
+connected = True
+while connected == True:
 
-send(DISCONNECT_MESSAGE)
+    msg = input('Enter a message (or "q" to quit): ')
+    send(msg)
+    if msg == DISCONNECT_MESSAGE:
+        connected = False
+        break
+    received_msg = client_soc.recv(CHUNK).decode(FORMAT)
+    print(received_msg)
+    print('client received message from server')
